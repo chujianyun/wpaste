@@ -12,12 +12,12 @@
 
 ## 下载与安装
 
-当前版本为 **0.1.1**，可直接下载适合你 Mac 的安装包，或前往 **[GitHub Releases](https://github.com/chujianyun/xpaste/releases/latest)** 查看发布详情。
+当前版本为 **0.1.1**，可直接下载适合你 Mac 的安装包，或前往 **[GitHub Releases](https://github.com/chujianyun/wpaste/releases/latest)** 查看发布详情。
 
 | 你的 Mac | 安装包 |
 | --- | --- |
-| Apple 芯片（M 系列） | [WPaste-0.1.1-macOS-arm64.dmg](https://github.com/chujianyun/xpaste/releases/download/v0.1.1/WPaste-0.1.1-macOS-arm64.dmg) |
-| Intel 处理器 | [WPaste-0.1.1-macOS-x86_64.dmg](https://github.com/chujianyun/xpaste/releases/download/v0.1.1/WPaste-0.1.1-macOS-x86_64.dmg) |
+| Apple 芯片（M 系列） | [WPaste-0.1.1-macOS-arm64.dmg](https://github.com/chujianyun/wpaste/releases/download/v0.1.1/WPaste-0.1.1-macOS-arm64.dmg) |
+| Intel 处理器 | [WPaste-0.1.1-macOS-x86_64.dmg](https://github.com/chujianyun/wpaste/releases/download/v0.1.1/WPaste-0.1.1-macOS-x86_64.dmg) |
 
 **系统要求：macOS 15.0 或更高版本。** 在苹果菜单 →「关于本机」中查看芯片或处理器类型。
 
@@ -27,7 +27,7 @@
 
 当前版本使用 Apple Development 开发证书签名，**尚未使用 Developer ID 分发签名，也未完成 Apple 公证**。首次打开可能被 macOS 拦截；确认来自本仓库的 Release 后，可在「系统设置 → 隐私与安全性」中使用「仍要打开」。受组织管理的 Mac 可能无法放行。
 
-仓库提供本版本的 [SHA256SUMS.txt](https://raw.githubusercontent.com/chujianyun/xpaste/main/docs/releases/v0.1.1/SHA256SUMS.txt)，可将其与两个 DMG 放在同一目录后校验：
+仓库提供本版本的 [SHA256SUMS.txt](https://raw.githubusercontent.com/chujianyun/wpaste/main/docs/releases/v0.1.1/SHA256SUMS.txt)，可将其与两个 DMG 放在同一目录后校验：
 
 ```bash
 shasum -a 256 -c SHA256SUMS.txt
@@ -75,8 +75,8 @@ shasum -a 256 -c SHA256SUMS.txt
 需要支持 Swift 6 和 macOS 15 SDK 的 Xcode，以及 [XcodeGen](https://github.com/yonaskolb/XcodeGen)。
 
 ```bash
-git clone https://github.com/chujianyun/xpaste.git
-cd xpaste
+git clone https://github.com/chujianyun/wpaste.git
+cd wpaste
 brew install xcodegen
 xcodegen generate
 open WPaste.xcodeproj
@@ -117,4 +117,4 @@ hdiutil verify build/WPaste.dmg
 
 ## 反馈
 
-欢迎通过 [GitHub Issues](https://github.com/chujianyun/xpaste/issues) 提交问题或建议。反馈问题时请附上 macOS 版本、芯片类型、WPaste 版本和复现步骤；截图前请隐去剪贴板中的私人内容。
+欢迎通过 [GitHub Issues](https://github.com/chujianyun/wpaste/issues) 提交问题或建议。反馈问题时请附上 macOS 版本、芯片类型、WPaste 版本和复现步骤；截图前请隐去剪贴板中的私人内容。
