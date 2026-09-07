@@ -1,10 +1,26 @@
 import Foundation
 import Observation
 
+enum HistoryContentType: String, CaseIterable {
+    case all = "全部"
+    case text = "文本"
+    case url = "链接"
+    case image = "图片"
+    case files = "文件"
+
+    func matches(_ payload: ClipboardPayload) -> Bool {
+        switch (self, payload) {
+        case (.all, _), (.text, .text), (.url, .url), (.image, .image), (.files, .files): true
+        default: false
+        }
+    }
+}
+
 @MainActor
 @Observable
 final class HistoryStore {
     var query = ""
+    var selectedType: HistoryContentType = .all
     private(set) var items: [ClipboardItem] = []
     private let repository: HistoryRepository
 
@@ -14,9 +30,9 @@ final class HistoryStore {
 
     var filteredItems: [ClipboardItem] {
         let needle = query.searchNormalized
-        guard !needle.isEmpty else { return items }
         return items.filter { item in
-            item.searchableText.searchNormalized.contains(needle)
+            selectedType.matches(item.payload)
+                && (needle.isEmpty || item.searchableText.searchNormalized.contains(needle))
         }
     }
 

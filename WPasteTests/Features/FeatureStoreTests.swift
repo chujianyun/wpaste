@@ -116,6 +116,65 @@ struct FeatureStoreTests {
         }
     }
 
+    @Test func typeSelectorInsideSearchCombinesTypeAndQuery() throws {
+        let repository = try HistoryRepository.inMemory()
+        let fixtures: [(String, ClipboardPayload)] = [
+            ("text", .text("Report memo")),
+            ("url", .url(URL(string: "https://example.com/report")!)),
+            ("image", .image(.init(width: 640, height: 480, relativePath: "report.png"))),
+            ("files", .files([.init(path: "/tmp/report.pdf", displayName: "report.pdf")])),
+            ("other", .text("Unrelated memo"))
+        ]
+        for (fingerprint, payload) in fixtures {
+            _ = try repository.upsert(payload: payload, fingerprint: fingerprint, source: source)
+        }
+        let history = HistoryStore(repository: repository)
+        try history.reload()
+        let view = NSHostingView(rootView: HistoryOverlayView(
+            history: history, pinboards: PinboardStore(repository: repository),
+            onPaste: { _, _ in }, onClose: {}, onOpenSettings: {}
+        ))
+        view.frame = NSRect(x: 0, y: 0, width: 900, height: 320)
+        let window = NSWindow(contentRect: view.frame, styleMask: [.borderless], backing: .buffered, defer: false)
+        window.contentView = view
+        window.orderFront(nil)
+        defer { window.orderOut(nil); window.contentView = nil }
+        func descendant<T: NSView>(in view: NSView, type: T.Type) -> T? {
+            if let match = view as? T { return match }
+            return view.subviews.lazy.compactMap { descendant(in: $0, type: type) }.first
+        }
+        view.layoutSubtreeIfNeeded()
+        let field = try #require(descendant(in: view, type: NSSearchField.self))
+        let selector = try #require(descendant(in: field, type: NSPopUpButton.self))
+        #expect(field.accessibilityChildren()?.contains { ($0 as? NSPopUpButton) === selector } == true)
+        #expect(field.bounds.contains(selector.frame))
+        #expect(selector.frame.midX < field.bounds.midX)
+        func select(_ title: String) throws {
+            selector.selectItem(withTitle: title)
+            let action = try #require(selector.action)
+            #expect(selector.sendAction(action, to: selector.target))
+        }
+        for (title, fingerprint) in [("文本", "text"), ("链接", "url"), ("图片", "image"), ("文件", "files")] {
+            history.query = "SAFARI"
+            try select(title)
+            let expected: Set<String> = title == "文本" ? ["text", "other"] : [fingerprint]
+            #expect(Set(history.filteredItems.map(\.fingerprint)) == expected)
+            history.query = "REPORT"
+            #expect(history.filteredItems.map(\.fingerprint) == (title == "图片" ? [] : [fingerprint]))
+        }
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.1))
+        let cell = try #require(field.cell as? NSSearchFieldCell)
+        try #require(cell.cancelButtonCell).performClick(field)
+        #expect(history.query.isEmpty)
+        #expect(history.filteredItems.map(\.fingerprint) == ["files"])
+        history.query = "REPORT"
+        try select("全部")
+        #expect(history.query == "REPORT")
+        #expect(Set(history.filteredItems.map(\.fingerprint)) == ["text", "url", "files"])
+        history.query = ""
+        #expect(history.filteredItems.count == 5)
+    }
+
     @Test func itemCanBelongToMultiplePinboardsAndDeletingBoardKeepsHistory() throws {
         let repository = try HistoryRepository.inMemory()
         let item = try repository.upsert(payload: .text("keep"), fingerprint: "keep", source: source)
