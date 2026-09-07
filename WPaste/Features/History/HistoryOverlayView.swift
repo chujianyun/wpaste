@@ -87,7 +87,7 @@ struct HistoryOverlayView: View {
         HStack(spacing: 14) {
             HistorySearchField(text: $history.query, selectedType: $history.selectedType)
                 .focused($searchFocused)
-                .frame(width: 260)
+                .frame(width: 260, height: 26)
             boardButton(title: "剪贴板历史", id: nil)
             ForEach(pinboards.pinboards) { board in boardButton(title: board.name, id: board.id) }
             Button { showingNewPinboard = true } label: { Image(systemName: "plus") }
@@ -193,25 +193,26 @@ private struct HistorySearchField: NSViewRepresentable {
     @Binding var text: String
     @Binding var selectedType: HistoryContentType
 
-    func makeNSView(context: Context) -> NSSearchField {
-        let field = TypeFilteringSearchField()
-        field.cell = TypeFilteringSearchFieldCell(textCell: "")
-        field.typeSelector.addItems(withTitles: HistoryContentType.allCases.map(\.rawValue))
-        field.typeSelector.target = context.coordinator
-        field.typeSelector.action = #selector(Coordinator.typeChanged(_:))
+    func makeNSView(context: Context) -> TypeFilteringSearchField {
+        let container = TypeFilteringSearchField()
+        container.typeSelector.addItems(withTitles: HistoryContentType.allCases.map(\.rawValue))
+        container.typeSelector.target = context.coordinator
+        container.typeSelector.action = #selector(Coordinator.typeChanged(_:))
+        let field = container.searchField
         field.placeholderString = "搜索"
         field.setAccessibilityLabel("搜索")
         field.sendsSearchStringImmediately = true
         field.delegate = context.coordinator
         field.target = context.coordinator
         field.action = #selector(Coordinator.searchChanged(_:))
-        return field
+        return container
     }
 
-    func updateNSView(_ field: NSSearchField, context: Context) {
+    func updateNSView(_ container: TypeFilteringSearchField, context: Context) {
+        let field = container.searchField
         context.coordinator.text = $text
         context.coordinator.selectedType = $selectedType
-        (field as? TypeFilteringSearchField)?.typeSelector.selectItem(withTitle: selectedType.rawValue)
+        container.typeSelector.selectItem(withTitle: selectedType.rawValue)
         if field.stringValue != text { field.stringValue = text }
     }
 
@@ -245,37 +246,48 @@ private struct HistorySearchField: NSViewRepresentable {
     }
 }
 
-private final class TypeFilteringSearchField: NSSearchField {
+// Separate native controls share one search outline so AppKit's placeholder and
+// field editor never draw beneath the type selector.
+private final class TypeFilteringSearchField: NSView {
     let typeSelector = NSPopUpButton(frame: .zero, pullsDown: false)
+    let searchField = NSSearchField(frame: .zero)
+    private let divider = NSBox(frame: .zero)
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
+        wantsLayer = true
         typeSelector.isBordered = false
         typeSelector.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
         typeSelector.setAccessibilityLabel("筛选内容类型")
         typeSelector.setAccessibilityIdentifier("history-type-filter")
         typeSelector.toolTip = "按类型筛选"
+        searchField.isBordered = false
+        searchField.drawsBackground = false
+        searchField.focusRingType = .none
+        divider.boxType = .separator
         addSubview(typeSelector)
+        addSubview(divider)
+        addSubview(searchField)
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
-    override func accessibilityChildren() -> [Any]? {
-        (super.accessibilityChildren() ?? []) + [typeSelector]
+    override var intrinsicContentSize: NSSize { NSSize(width: 260, height: 26) }
+    override var wantsUpdateLayer: Bool { true }
+
+    override func updateLayer() {
+        layer?.backgroundColor = NSColor.textBackgroundColor.cgColor
+        layer?.borderColor = NSColor.separatorColor.cgColor
+        layer?.borderWidth = 1
+        layer?.cornerRadius = 6
     }
 
     override func layout() {
         super.layout()
-        typeSelector.frame = NSRect(x: 5, y: 1, width: 66, height: max(0, bounds.height - 2))
-    }
-}
-
-private final class TypeFilteringSearchFieldCell: NSSearchFieldCell {
-    override func searchButtonRect(forBounds rect: NSRect) -> NSRect { .zero }
-
-    override func searchTextRect(forBounds rect: NSRect) -> NSRect {
-        let textRect = super.searchTextRect(forBounds: rect)
-        let left = max(textRect.minX, rect.minX + 78)
-        return NSRect(x: left, y: textRect.minY, width: max(0, textRect.maxX - left), height: textRect.height)
+        typeSelector.frame = NSRect(x: 5, y: 2, width: 66, height: max(0, bounds.height - 4))
+        divider.frame = NSRect(x: 75, y: 5, width: 1, height: max(0, bounds.height - 10))
+        let inputHeight = min(searchField.intrinsicContentSize.height, bounds.height - 4)
+        searchField.frame = NSRect(x: 81, y: (bounds.height - inputHeight) / 2,
+                                  width: max(0, bounds.width - 86), height: inputHeight)
     }
 }

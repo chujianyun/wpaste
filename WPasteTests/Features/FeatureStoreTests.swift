@@ -145,21 +145,30 @@ struct FeatureStoreTests {
         }
         view.layoutSubtreeIfNeeded()
         let field = try #require(descendant(in: view, type: NSSearchField.self))
-        let selector = try #require(descendant(in: field, type: NSPopUpButton.self))
-        #expect(field.accessibilityChildren()?.contains { ($0 as? NSPopUpButton) === selector } == true)
-        #expect(field.bounds.contains(selector.frame))
-        #expect(selector.frame.midX < field.bounds.midX)
+        let selector = try #require(descendant(in: view, type: NSPopUpButton.self))
+        let selectorRect = selector.convert(selector.bounds, to: view)
+        let inputRect = field.convert(field.bounds, to: view)
+        #expect(selectorRect.maxX < inputRect.minX)
+        #expect(inputRect.width >= 150)
+        #expect(selectorRect.midY >= inputRect.minY && selectorRect.midY <= inputRect.maxY)
+        func typeQuery(_ query: String) throws {
+            window.makeFirstResponder(field)
+            let editor = try #require(field.currentEditor() as? NSTextView)
+            editor.selectAll(nil)
+            editor.insertText(query, replacementRange: editor.selectedRange())
+            #expect(history.query == query)
+        }
         func select(_ title: String) throws {
             selector.selectItem(withTitle: title)
             let action = try #require(selector.action)
             #expect(selector.sendAction(action, to: selector.target))
         }
         for (title, fingerprint) in [("文本", "text"), ("链接", "url"), ("图片", "image"), ("文件", "files")] {
-            history.query = "SAFARI"
+            try typeQuery("SAFARI")
             try select(title)
             let expected: Set<String> = title == "文本" ? ["text", "other"] : [fingerprint]
             #expect(Set(history.filteredItems.map(\.fingerprint)) == expected)
-            history.query = "REPORT"
+            try typeQuery("REPORT")
             #expect(history.filteredItems.map(\.fingerprint) == (title == "图片" ? [] : [fingerprint]))
         }
         RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.1))
