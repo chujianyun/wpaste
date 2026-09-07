@@ -87,13 +87,12 @@ struct FeatureStoreTests {
         window.orderFront(nil)
         defer { window.orderOut(nil); window.contentView = nil }
 
-        func searchField(in view: NSView) -> NSSearchField? {
-            if let field = view as? NSSearchField { return field }
+        func searchField(in view: NSView) -> NSTextField? {
+            if let field = view as? NSTextField, field.accessibilityLabel() == "搜索" { return field }
             return view.subviews.lazy.compactMap { searchField(in: $0) }.first
         }
         view.layoutSubtreeIfNeeded()
         let field = try #require(searchField(in: view))
-        let cell = try #require(field.cell as? NSSearchFieldCell)
         #expect(field.stringValue.isEmpty)
 
         field.stringValue = "季度"
@@ -106,13 +105,25 @@ struct FeatureStoreTests {
             RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.1))
             #expect(field.stringValue == query)
             #expect(history.filteredItems.count < 2)
-            let cancelRect = cell.cancelButtonRect(forBounds: field.bounds)
-            #expect(!cancelRect.isEmpty)
-            let button = try #require(cell.cancelButtonCell)
-            button.performClick(field)
+            func clearButton(in view: NSView) -> NSButton? {
+                if let button = view as? NSButton, button.accessibilityIdentifier() == "history-search-clear" { return button }
+                return view.subviews.lazy.compactMap { clearButton(in: $0) }.first
+            }
+            let button = try #require(clearButton(in: view))
+            #expect(!button.isHidden)
+            let inputRect = field.convert(field.bounds, to: view)
+            let buttonRect = button.convert(button.bounds, to: view)
+            #expect(inputRect.maxX < buttonRect.minX)
+            let hitPoint = view.convert(NSPoint(x: buttonRect.midX, y: buttonRect.midY), to: view.superview)
+            let hit = view.hitTest(hitPoint)
+            #expect(hit === button)
+            window.makeFirstResponder(field)
+            button.performClick(nil)
             #expect(history.query.isEmpty)
             #expect(history.filteredItems.count == 2)
             #expect(field.stringValue.isEmpty)
+            #expect(field.currentEditor()?.string == "")
+            #expect(button.isHidden)
         }
     }
 
@@ -140,14 +151,24 @@ struct FeatureStoreTests {
         window.orderFront(nil)
         defer { window.orderOut(nil); window.contentView = nil }
         func descendant<T: NSView>(in view: NSView, type: T.Type) -> T? {
-            if let match = view as? T { return match }
+            if let match = view as? T {
+                if let field = match as? NSTextField {
+                    if field.accessibilityLabel() == "搜索" { return match }
+                } else { return match }
+            }
             return view.subviews.lazy.compactMap { descendant(in: $0, type: type) }.first
         }
         view.layoutSubtreeIfNeeded()
-        let field = try #require(descendant(in: view, type: NSSearchField.self))
+        let field = try #require(descendant(in: view, type: NSTextField.self))
         let selector = try #require(descendant(in: view, type: NSPopUpButton.self))
         let selectorRect = selector.convert(selector.bounds, to: view)
         let inputRect = field.convert(field.bounds, to: view)
+        let icon = try #require(field.superview?.subviews.compactMap { $0 as? NSImageView }.first {
+            $0.accessibilityIdentifier() == "history-search-icon"
+        })
+        let iconRect = icon.convert(icon.bounds, to: view)
+        #expect(selectorRect.maxX < iconRect.minX)
+        #expect(iconRect.maxX < inputRect.minX)
         #expect(selectorRect.maxX < inputRect.minX)
         #expect(inputRect.width >= 150)
         #expect(selectorRect.midY >= inputRect.minY && selectorRect.midY <= inputRect.maxY)
@@ -172,8 +193,11 @@ struct FeatureStoreTests {
             #expect(history.filteredItems.map(\.fingerprint) == (title == "图片" ? [] : [fingerprint]))
         }
         RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.1))
-        let cell = try #require(field.cell as? NSSearchFieldCell)
-        try #require(cell.cancelButtonCell).performClick(field)
+        let controls = try #require(field.superview)
+        let clear = try #require(controls.subviews.compactMap { $0 as? NSButton }.first {
+            $0.accessibilityIdentifier() == "history-search-clear"
+        })
+        clear.performClick(nil)
         #expect(history.query.isEmpty)
         #expect(history.filteredItems.map(\.fingerprint) == ["files"])
         history.query = "REPORT"

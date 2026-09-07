@@ -87,7 +87,7 @@ struct HistoryOverlayView: View {
         HStack(spacing: 14) {
             HistorySearchField(text: $history.query, selectedType: $history.selectedType)
                 .focused($searchFocused)
-                .frame(width: 260, height: 26)
+                .frame(width: 300, height: 26)
             boardButton(title: "剪贴板历史", id: nil)
             ForEach(pinboards.pinboards) { board in boardButton(title: board.name, id: board.id) }
             Button { showingNewPinboard = true } label: { Image(systemName: "plus") }
@@ -201,7 +201,8 @@ private struct HistorySearchField: NSViewRepresentable {
         let field = container.searchField
         field.placeholderString = "搜索"
         field.setAccessibilityLabel("搜索")
-        field.sendsSearchStringImmediately = true
+        container.clearButton.target = context.coordinator
+        container.clearButton.action = #selector(Coordinator.clearSearch(_:))
         field.delegate = context.coordinator
         field.target = context.coordinator
         field.action = #selector(Coordinator.searchChanged(_:))
@@ -209,17 +210,16 @@ private struct HistorySearchField: NSViewRepresentable {
     }
 
     func updateNSView(_ container: TypeFilteringSearchField, context: Context) {
-        let field = container.searchField
         context.coordinator.text = $text
         context.coordinator.selectedType = $selectedType
         container.typeSelector.selectItem(withTitle: selectedType.rawValue)
-        if field.stringValue != text { field.stringValue = text }
+        container.setQuery(text)
     }
 
     func makeCoordinator() -> Coordinator { Coordinator(text: $text, selectedType: $selectedType) }
 
     @MainActor
-    final class Coordinator: NSObject, NSSearchFieldDelegate {
+    final class Coordinator: NSObject, NSTextFieldDelegate {
         var text: Binding<String>
 
         var selectedType: Binding<HistoryContentType>
@@ -236,12 +236,20 @@ private struct HistorySearchField: NSViewRepresentable {
         }
 
         func controlTextDidChange(_ notification: Notification) {
-            guard let field = notification.object as? NSSearchField else { return }
+            guard let field = notification.object as? NSTextField else { return }
             searchChanged(field)
         }
 
-        @objc func searchChanged(_ field: NSSearchField) {
+        @objc func searchChanged(_ field: NSTextField) {
             text.wrappedValue = field.stringValue
+            (field.superview as? TypeFilteringSearchField)?.clearButton.isHidden = field.stringValue.isEmpty
+        }
+
+        @objc func clearSearch(_ button: NSButton) {
+            guard let container = button.superview as? TypeFilteringSearchField else { return }
+            container.setQuery("")
+            text.wrappedValue = ""
+            container.window?.makeFirstResponder(container.searchField)
         }
     }
 }
@@ -250,7 +258,9 @@ private struct HistorySearchField: NSViewRepresentable {
 // field editor never draw beneath the type selector.
 private final class TypeFilteringSearchField: NSView {
     let typeSelector = NSPopUpButton(frame: .zero, pullsDown: false)
-    let searchField = NSSearchField(frame: .zero)
+    let searchField = NSTextField(frame: .zero)
+    let clearButton = NSButton(frame: .zero)
+    private let searchIcon = NSImageView(frame: .zero)
     private let divider = NSBox(frame: .zero)
 
     override init(frame frameRect: NSRect) {
@@ -261,18 +271,36 @@ private final class TypeFilteringSearchField: NSView {
         typeSelector.setAccessibilityLabel("筛选内容类型")
         typeSelector.setAccessibilityIdentifier("history-type-filter")
         typeSelector.toolTip = "按类型筛选"
+        searchIcon.image = NSImage(systemSymbolName: "magnifyingglass", accessibilityDescription: nil)
+        searchIcon.contentTintColor = .secondaryLabelColor
+        searchIcon.setAccessibilityIdentifier("history-search-icon")
+        searchIcon.setAccessibilityElement(false)
+        clearButton.image = NSImage(systemSymbolName: "xmark.circle.fill", accessibilityDescription: "清空搜索")
+        clearButton.imagePosition = .imageOnly
+        clearButton.isBordered = false
+        clearButton.contentTintColor = .secondaryLabelColor
+        clearButton.setAccessibilityLabel("清空搜索")
+        clearButton.setAccessibilityIdentifier("history-search-clear")
+        clearButton.toolTip = "清空搜索"
+        clearButton.isHidden = true
         searchField.isBordered = false
+        searchField.isEditable = true
+        searchField.isSelectable = true
+        searchField.usesSingleLineMode = true
+        searchField.lineBreakMode = .byClipping
         searchField.drawsBackground = false
         searchField.focusRingType = .none
         divider.boxType = .separator
         addSubview(typeSelector)
         addSubview(divider)
+        addSubview(searchIcon)
         addSubview(searchField)
+        addSubview(clearButton)
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
-    override var intrinsicContentSize: NSSize { NSSize(width: 260, height: 26) }
+    override var intrinsicContentSize: NSSize { NSSize(width: 300, height: 26) }
     override var wantsUpdateLayer: Bool { true }
 
     override func updateLayer() {
@@ -282,12 +310,20 @@ private final class TypeFilteringSearchField: NSView {
         layer?.cornerRadius = 6
     }
 
+    func setQuery(_ query: String) {
+        if searchField.stringValue != query { searchField.stringValue = query }
+        if let editor = searchField.currentEditor(), editor.string != query { editor.string = query }
+        clearButton.isHidden = query.isEmpty
+    }
+
     override func layout() {
         super.layout()
         typeSelector.frame = NSRect(x: 5, y: 2, width: 66, height: max(0, bounds.height - 4))
         divider.frame = NSRect(x: 75, y: 5, width: 1, height: max(0, bounds.height - 10))
         let inputHeight = min(searchField.intrinsicContentSize.height, bounds.height - 4)
-        searchField.frame = NSRect(x: 81, y: (bounds.height - inputHeight) / 2,
-                                  width: max(0, bounds.width - 86), height: inputHeight)
+        searchIcon.frame = NSRect(x: 83, y: (bounds.height - 14) / 2, width: 14, height: 14)
+        searchField.frame = NSRect(x: 103, y: (bounds.height - inputHeight) / 2,
+                                  width: max(0, bounds.width - 134), height: inputHeight)
+        clearButton.frame = NSRect(x: bounds.width - 25, y: (bounds.height - 20) / 2, width: 20, height: 20)
     }
 }
