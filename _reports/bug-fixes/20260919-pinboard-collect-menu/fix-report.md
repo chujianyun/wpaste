@@ -1,8 +1,8 @@
 # 「收藏到 Pinboard」右键菜单看似无反应
 
 - 日期：2026-09-19
-- 处理状态：代码与自动验证通过，已安装并启动；右键菜单与提示的实际交互等待已安装版本的人工验收。
-- Git 状态：待提交、推送。
+- 处理状态：代码与自动验证通过，已安装并启动，已提交推送；右键菜单与提示的实际交互等待已安装版本的人工验收。
+- Git 状态：已提交 `452f4f3` 并推送到 `origin/main`（远端 SHA 已核对一致；HTTPS 凭据缺失，改用同一仓库的 SSH 通道完成普通推送）。
 
 ## 问题与根因
 
@@ -28,9 +28,9 @@
 | 签名与授权保留 | Apple Development: 605283073@qq.com (C7M68TN47R)，Team 7PXD675DGC；新产物 `codesign --verify --deep --strict --all-architectures` 通过；新产物满足旧版 DR（explicit requirement satisfied），身份兼容，授权可继承 |
 | 旧进程退出 | 旧 PID 884（`/Applications/WPaste.app/Contents/MacOS/WPaste`），正常退出，无残留 |
 | 安装 | `ditto` 完整替换 `/Applications/WPaste.app`，安装后签名复查通过 |
-| 启动与功能 | `open -n /Applications/WPaste.app`，新进程 PID 25052 持续运行，无立即崩溃 |
+| 启动与功能 | `open -n /Applications/WPaste.app`，新进程 PID 25052 持续运行（已稳定运行 2 分钟以上），无立即崩溃 |
 | 界面修改验收 | 待人工验收：打开历史面板，确认无 Pinboard 时右键菜单不含「收藏到 Pinboard」；创建 Pinboard 后收藏卡片，确认底部出现「已收藏到」提示，且切换到该 Pinboard 能看到卡片 |
 | 条件联动 | 不涉及：未改持久化结构、快捷键、CLI 或工程配置 |
-| Git | 待提交推送 |
+| Git | 提交 `452f4f3`（仅含本次修复与报告），已推送 `main` 至 GitHub 远端并核对远端 SHA 一致 |
 
 说明：本次构建的工作区还包含上一个任务（访达图片预览，见 `_reports/bug-fixes/20260909-finder-image-preview`）尚未提交的改动，会进入本次安装产物，但不纳入本次提交。
