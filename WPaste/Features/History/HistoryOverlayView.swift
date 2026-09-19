@@ -14,6 +14,8 @@ struct HistoryOverlayView: View {
     @State private var newPinboardName = ""
     @State private var boardBeingRenamed: Pinboard?
     @State private var renamedBoardName = ""
+    @State private var toastMessage: String?
+    @State private var toastDismissal: Task<Void, Never>?
     @FocusState private var searchFocused: Bool
 
     var body: some View {
@@ -81,6 +83,19 @@ struct HistoryOverlayView: View {
                 boardBeingRenamed = nil
             }
         }
+        .overlay(alignment: .bottom) {
+            if let toastMessage {
+                Text(toastMessage)
+                    .font(.callout)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(.regularMaterial, in: Capsule())
+                    .padding(.bottom, 18)
+                    .transition(.opacity)
+                    .accessibilityIdentifier("overlay-toast")
+            }
+        }
+        .animation(.easeInOut(duration: 0.2), value: toastMessage)
     }
 
     private var navigationBar: some View {
@@ -129,13 +144,34 @@ struct HistoryOverlayView: View {
     private func contextMenu(for item: ClipboardItem) -> some View {
         Button("复制") { onPaste(item, false) }
         Button("纯文本粘贴") { onPaste(item, true) }
-        Menu("收藏到 Pinboard") {
-            ForEach(pinboards.pinboards) { board in
-                Button(board.name) { try? pinboards.add(itemID: item.id, to: board.id) }
+        if !pinboards.pinboards.isEmpty {
+            Menu("收藏到 Pinboard") {
+                ForEach(pinboards.pinboards) { board in
+                    Button(board.name) { collect(item, to: board) }
+                }
             }
         }
         Divider()
         Button("删除", role: .destructive) { try? history.delete(id: item.id); syncCount() }
+    }
+
+    private func collect(_ item: ClipboardItem, to board: Pinboard) {
+        do {
+            try pinboards.add(itemID: item.id, to: board.id)
+            showToast("已收藏到「\(board.name)」")
+        } catch {
+            showToast("收藏失败，请重试")
+        }
+    }
+
+    private func showToast(_ message: String) {
+        toastDismissal?.cancel()
+        toastMessage = message
+        toastDismissal = Task { @MainActor in
+            try? await Task.sleep(for: .seconds(1.6))
+            guard !Task.isCancelled else { return }
+            toastMessage = nil
+        }
     }
 
     private var displayedItems: [ClipboardItem] {
