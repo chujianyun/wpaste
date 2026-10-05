@@ -12,12 +12,12 @@
 
 ## 下载与安装
 
-当前版本为 **0.1.1**，可直接下载适合你 Mac 的安装包，或前往 **[GitHub Releases](https://github.com/chujianyun/wpaste/releases/latest)** 查看发布详情。
+当前版本为 **0.1.2**，可直接下载适合你 Mac 的安装包，或前往 **[GitHub Releases](https://github.com/chujianyun/wpaste/releases/latest)** 查看发布详情。
 
 | 你的 Mac | 安装包 |
 | --- | --- |
-| Apple 芯片（M 系列） | [WPaste-0.1.1-macOS-arm64.dmg](https://github.com/chujianyun/wpaste/releases/download/v0.1.1/WPaste-0.1.1-macOS-arm64.dmg) |
-| Intel 处理器 | [WPaste-0.1.1-macOS-x86_64.dmg](https://github.com/chujianyun/wpaste/releases/download/v0.1.1/WPaste-0.1.1-macOS-x86_64.dmg) |
+| Apple 芯片（M 系列） | [WPaste-0.1.2-macOS-arm64.dmg](https://github.com/chujianyun/wpaste/releases/download/v0.1.2/WPaste-0.1.2-macOS-arm64.dmg) |
+| Intel 处理器 | [WPaste-0.1.2-macOS-x86_64.dmg](https://github.com/chujianyun/wpaste/releases/download/v0.1.2/WPaste-0.1.2-macOS-x86_64.dmg) |
 
 **系统要求：macOS 15.0 或更高版本。** 在苹果菜单 →「关于本机」中查看芯片或处理器类型。
 
@@ -27,18 +27,20 @@
 
 当前版本使用 Apple Development 开发证书签名，**尚未使用 Developer ID 分发签名，也未完成 Apple 公证**。首次打开可能被 macOS 拦截；确认来自本仓库的 Release 后，可在「系统设置 → 隐私与安全性」中使用「仍要打开」。受组织管理的 Mac 可能无法放行。
 
-仓库提供本版本的 [SHA256SUMS.txt](https://raw.githubusercontent.com/chujianyun/wpaste/main/docs/releases/v0.1.1/SHA256SUMS.txt)，可将其与两个 DMG 放在同一目录后校验：
+仓库提供本版本的 [SHA256SUMS.txt](https://raw.githubusercontent.com/chujianyun/wpaste/main/docs/releases/v0.1.2/SHA256SUMS.txt)，可将其与两个 DMG 放在同一目录后校验：
 
 ```bash
 shasum -a 256 -c SHA256SUMS.txt
 ```
 
-## 0.1.1 更新
+## 0.1.2 更新
 
-- 修复打开历史面板后，原应用引用可能提前释放、导致自动粘贴失败的问题。
-- 修复未授予辅助功能权限时反复弹出授权提示的问题；同次运行只提示一次，仍可复制历史内容，授权后再次粘贴即可恢复自动粘贴。
+- 新增历史内容类型筛选，改进搜索输入与一键清空。
+- 访达复制的图片文件支持缩略图，并可通过图片分类和文件名搜索找到。
+- 视频文件卡片显示首帧预览。
+- 没有收藏分类时隐藏空菜单，收藏成功后显示提示。
 
-完整说明见 [0.1.1 发布说明](docs/releases/v0.1.1.md)。
+完整说明见 [0.1.2 发布说明](docs/releases/v0.1.2.md)。
 
 ## 能做什么
 

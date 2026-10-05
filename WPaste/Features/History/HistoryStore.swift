@@ -10,7 +10,8 @@ enum HistoryContentType: String, CaseIterable {
 
     func matches(_ payload: ClipboardPayload) -> Bool {
         switch (self, payload) {
-        case (.all, _), (.text, .text), (.url, .url), (.image, .image), (.files, .files): true
+        case (.image, _): payload.isImage
+        case (.all, _), (.text, .text), (.url, .url), (.files, .files): true
         default: false
         }
     }

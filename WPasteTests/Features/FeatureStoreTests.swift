@@ -208,6 +208,26 @@ struct FeatureStoreTests {
         #expect(history.filteredItems.count == 5)
     }
 
+    @Test func imageFilterIncludesFinderImagesAndCombinesFilenameSearch() throws {
+        let repository = try HistoryRepository.inMemory()
+        for (key, names) in [
+            ("photo", ["photo.JPG"]), ("png", ["capture.png"]), ("heic", ["camera.heic"]),
+            ("group", ["photo.JPG", "capture.png"]), ("mixed", ["photo.JPG", "notes.txt"]),
+            ("document", ["report.pdf"])
+        ] {
+            _ = try repository.upsert(payload: .files(names.map { .init(path: "/tmp/" + $0, displayName: $0) }), fingerprint: key, source: source)
+        }
+        let history = HistoryStore(repository: repository)
+        try history.reload()
+        history.selectedType = .image
+        #expect(Set(history.filteredItems.map(\.fingerprint)) == ["photo", "png", "heic", "group"])
+        history.query = "PHOTO"
+        #expect(Set(history.filteredItems.map(\.fingerprint)) == ["photo", "group"])
+        history.selectedType = .files
+        #expect(Set(history.filteredItems.map(\.fingerprint)) == ["photo", "group", "mixed"])
+        #expect(!HistoryContentType.image.matches(.files([])))
+    }
+
     @Test func itemCanBelongToMultiplePinboardsAndDeletingBoardKeepsHistory() throws {
         let repository = try HistoryRepository.inMemory()
         let item = try repository.upsert(payload: .text("keep"), fingerprint: "keep", source: source)
