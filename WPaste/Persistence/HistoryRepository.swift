@@ -17,7 +17,11 @@ final class HistoryRepository {
                 .appending(path: "WPaste", directoryHint: .isDirectory)
             self.imageFileStore = ImageFileStore(rootDirectory: root)
         }
-        let configuration = ModelConfiguration(isStoredInMemoryOnly: inMemory)
+        let configuration = try inMemory
+            ? ModelConfiguration(isStoredInMemoryOnly: true)
+            : HistoryStorage(applicationSupportDirectory: FileManager.default.urls(
+                for: .applicationSupportDirectory, in: .userDomainMask
+            )[0]).configuration()
         container = try ModelContainer(
             for: HistoryRecord.self,
             PinboardRecord.self,
