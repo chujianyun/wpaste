@@ -13,6 +13,64 @@ struct PasteCoordinatorTests {
         #expect(target.isRunning)
     }
 
+    @Test func differentImagesExposeDistinctFilenamesAndReadableImageData() throws {
+        let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = ImageFileStore(rootDirectory: root)
+        let pasteboard = NSPasteboard.withUniqueName()
+        defer { pasteboard.releaseGlobally() }
+        let writer = SystemPasteboardWriter(
+            pasteboard: pasteboard, applicationSupportDirectory: root,
+            imageExportDirectory: root.appending(path: "Exports")
+        )
+        var filenames: Set<String> = []
+
+        // Existing history can contain either PNG or TIFF bytes with a .png extension.
+        for (format, blue) in [(NSBitmapImageRep.FileType.png, 0.0), (.tiff, 1.0)] {
+            let colorSpace = try #require(CGColorSpace(name: CGColorSpace.sRGB))
+            let context = try #require(CGContext(
+                data: nil, width: 2, height: 1, bitsPerComponent: 8, bytesPerRow: 0,
+                space: colorSpace,
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+            ))
+            context.setFillColor(red: 1 - blue, green: 0, blue: blue, alpha: 1)
+            context.fill(CGRect(x: 0, y: 0, width: 2, height: 1))
+            let bitmap = NSBitmapImageRep(cgImage: try #require(context.makeImage()))
+            let data = try #require(bitmap.representation(using: format, properties: [:]))
+            let path = try store.save(data, fileExtension: "png")
+            let payload = ClipboardPayload.image(.init(width: 2, height: 1, relativePath: path))
+
+            #expect(writer.write(payload, asPlainText: false))
+            #expect(pasteboard.pasteboardItems?.count == 1)
+            let urls = try #require(pasteboard.readObjects(
+                forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]
+            ) as? [URL])
+            let url = try #require(urls.first)
+            #expect(urls.count == 1)
+            #expect(url.pathExtension == "png")
+            #expect(filenames.insert(url.lastPathComponent).inserted)
+            let exported = try Data(contentsOf: url)
+            #expect(exported.starts(with: [137, 80, 78, 71, 13, 10, 26, 10]))
+            #expect(pasteboard.data(forType: .png) == exported)
+            let restored = try #require(NSBitmapImageRep(data: exported))
+            #expect(restored.pixelsWide == 2)
+            #expect(restored.pixelsHigh == 1)
+            let pixel = try #require(restored.colorAt(x: 0, y: 0)?.usingColorSpace(.sRGB))
+            // Allow AppKit's display color management while checking distinct pixel content.
+            #expect(abs(pixel.blueComponent - blue) < 0.05)
+            #expect(abs(pixel.redComponent - (1 - blue)) < 0.05)
+            #expect(pixel.alphaComponent > 0.99)
+            #expect(NSImage(pasteboard: pasteboard)?.isValid == true)
+
+            #expect(writer.write(payload, asPlainText: false))
+            #expect(pasteboard.string(forType: .fileURL) == url.absoluteString)
+            // The exported file remains usable after its history entry is removed.
+            try store.delete(relativePath: path)
+            #expect(FileManager.default.fileExists(atPath: url.path))
+        }
+        #expect(filenames.count == 2)
+    }
+
     @Test func automaticPasteWritesClosesActivatesAndSendsInOrder() {
         var events: [String] = []
         let writer = RecordingPasteboardWriter { events.append($0) }

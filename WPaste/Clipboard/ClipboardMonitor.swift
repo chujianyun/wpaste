@@ -49,7 +49,11 @@ final class ClipboardMonitor {
         let currentChangeCount = pasteboard.changeCount
         guard currentChangeCount != lastChangeCount else { return }
         lastChangeCount = currentChangeCount
-        guard let snapshot = pasteboard.snapshot(), let parsed = parser.parse(snapshot) else { return }
+        guard let snapshot = pasteboard.snapshot(),
+              // Restored images also expose a file URL and may have been transcoded to PNG;
+              // their parsed fingerprint no longer necessarily matches the original image.
+              !snapshot.declaredTypes.contains(PasteboardSnapshot.restoredImageType),
+              let parsed = parser.parse(snapshot) else { return }
         guard privacyFilter.decision(for: parsed, settings: settings()) == .allow else { return }
 
         let fingerprint = parsed.imageData.map(ContentFingerprint.make(forImageData:))

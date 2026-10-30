@@ -6,6 +6,8 @@ struct PixelSize: Equatable, Sendable {
 }
 
 struct PasteboardSnapshot: Equatable, Sendable {
+    static let restoredImageType = "com.chujianyun.wpaste.restored-image"
+
     var fileURLs: [URL]
     var imageData: Data?
     var imageSize: PixelSize?

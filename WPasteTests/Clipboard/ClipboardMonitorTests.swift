@@ -1,4 +1,4 @@
-import Foundation
+import AppKit
 import Testing
 @testable import WPaste
 
@@ -47,6 +47,43 @@ struct ClipboardMonitorTests {
         try monitor.pollOnce(now: now)
 
         #expect(try repository.items().isEmpty)
+    }
+
+    @Test func restoringNamedImageDoesNotCreateFileHistoryEntry() throws {
+        let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = ImageFileStore(rootDirectory: root)
+        let repository = try HistoryRepository.inMemory(imageFileStore: store)
+        let colorSpace = try #require(CGColorSpace(name: CGColorSpace.sRGB))
+        let context = try #require(CGContext(
+            data: nil, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 0,
+            space: colorSpace, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ))
+        context.setFillColor(red: 1, green: 0, blue: 0, alpha: 1)
+        context.fill(CGRect(x: 0, y: 0, width: 1, height: 1))
+        let bitmap = NSBitmapImageRep(cgImage: try #require(context.makeImage()))
+        let data = try #require(bitmap.representation(using: .tiff, properties: [:]))
+        let item = try repository.upsert(candidate: .init(
+            payload: .image(.init(width: 1, height: 1, relativePath: "")),
+            source: source, imageData: data
+        ), fingerprint: ContentFingerprint.make(forImageData: data))
+        let pasteboard = NSPasteboard.withUniqueName()
+        defer { pasteboard.releaseGlobally() }
+        var settings = AppSettings.default
+        settings.ignoreSensitiveContent = false
+        settings.ignoreTransientContent = false
+        let monitor = ClipboardMonitor(
+            pasteboard: SystemPasteboardClient(pasteboard: pasteboard), repository: repository
+        ) { settings }
+        let writer = SystemPasteboardWriter(
+            pasteboard: pasteboard, applicationSupportDirectory: root,
+            imageExportDirectory: root.appending(path: "Exports")
+        )
+
+        #expect(writer.write(item.payload, asPlainText: false))
+        try monitor.pollOnce()
+
+        #expect(try repository.items() == [item])
     }
 }
 

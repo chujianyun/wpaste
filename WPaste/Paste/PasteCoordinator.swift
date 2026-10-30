@@ -10,12 +10,19 @@ protocol PasteboardWriting: AnyObject {
 final class SystemPasteboardWriter: PasteboardWriting {
     private let pasteboard: NSPasteboard
     private let applicationSupportDirectory: URL
+    private let imageExportDirectory: URL
 
-    init(pasteboard: NSPasteboard = .general, applicationSupportDirectory: URL? = nil) {
+    init(
+        pasteboard: NSPasteboard = .general,
+        applicationSupportDirectory: URL? = nil,
+        imageExportDirectory: URL? = nil
+    ) {
         self.pasteboard = pasteboard
         self.applicationSupportDirectory = applicationSupportDirectory
             ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
                 .appending(path: "WPaste", directoryHint: .isDirectory)
+        self.imageExportDirectory = imageExportDirectory
+            ?? FileManager.default.temporaryDirectory.appending(path: "WPaste/PastedImages", directoryHint: .isDirectory)
     }
 
     func write(_ payload: ClipboardPayload, asPlainText: Bool) -> Bool {
@@ -30,8 +37,25 @@ final class SystemPasteboardWriter: PasteboardWriting {
             return pasteboard.writeObjects([value as NSURL])
         case let .image(metadata):
             let url = applicationSupportDirectory.appending(path: metadata.relativePath)
-            guard let image = NSImage(contentsOf: url) else { return false }
-            return pasteboard.writeObjects([image])
+            guard let data = try? Data(contentsOf: url),
+                  let bitmap = NSBitmapImageRep(data: data),
+                  let png = bitmap.representation(using: .png, properties: [:]) else { return false }
+            // A bitmap alone lets receiving apps invent the same name for every image.
+            // Keep a named PNG outside history so deleting an entry cannot invalidate a pending paste.
+            let filename = "WPaste-\(ContentFingerprint.make(forImageData: data)).png"
+            let exportedURL = imageExportDirectory.appending(path: filename)
+            do {
+                try FileManager.default.createDirectory(at: imageExportDirectory, withIntermediateDirectories: true)
+                try png.write(to: exportedURL, options: .atomic)
+            } catch {
+                return false
+            }
+            let item = NSPasteboardItem()
+            item.setString(exportedURL.absoluteString, forType: .fileURL)
+            item.setData(png, forType: .png)
+            if let tiff = bitmap.tiffRepresentation { item.setData(tiff, forType: .tiff) }
+            item.setString("", forType: .init(PasteboardSnapshot.restoredImageType))
+            return pasteboard.writeObjects([item])
         case let .files(files):
             let urls = files.map { URL(fileURLWithPath: $0.path) as NSURL }
             guard urls.allSatisfy({ FileManager.default.fileExists(atPath: $0.path ?? "") }) else { return false }
